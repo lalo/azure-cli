@@ -1660,11 +1660,18 @@ def aks_get_versions(cmd, client, location):
 def aks_get_credentials(cmd, client, resource_group_name, name, admin=False,
                         path=os.path.join(os.path.expanduser('~'), '.kube', 'config'),
                         overwrite_existing=False):
+    instance = client.get(resource_group_name, name)
     credentialResults = None
-    if admin:
-        credentialResults = client.list_cluster_admin_credentials(resource_group_name, name)
-    else:
-        credentialResults = client.list_cluster_user_credentials(resource_group_name, name)
+    try:
+        if admin:
+            credentialResults = client.list_cluster_admin_credentials(resource_group_name, name)
+        else:
+            credentialResults = client.list_cluster_user_credentials(resource_group_name, name)
+    except CloudError as err:
+        if instance and instance.provisioning_state != "Succeeded":
+            raise CLIError('Fail to find kubeconfig file. Cluster is in "{0}" state. {1}'.format(
+                instance.provisioning_state, err.message))
+
 
     if not credentialResults:
         raise CLIError("No Kubernetes credentials found.")
